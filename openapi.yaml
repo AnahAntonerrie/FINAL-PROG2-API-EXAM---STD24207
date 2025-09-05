@@ -1,0 +1,187 @@
+openapi: 3.0.3
+info:
+  title: STD24207
+  version: "1.0.0"
+  description: "This is a specification of STD24207"
+servers:
+  - url: http://localhost:8000
+    description: Local FastAPI server
+
+paths:
+  /booking:
+    get:
+      tags: [Booking]
+      summary: Lister les réservations
+      description: Récupère toutes les réservations en mémoire.
+      responses:
+        "200":
+          description: Liste des réservations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+              examples:
+                success:
+                  summary: Exemple de liste
+                  value:
+                    - id: 1
+                      client_name: "Ada Lovelace"
+                      client_phone: "+261-99-123-4567"
+                      client_email: "ada@example.com"
+                      room_number: 101
+                      room_description: "Suite vue mer"
+                      booking_date: "2025-09-05"
+                    - id: 2
+                      client_name: "Alan Turing"
+                      client_phone: "+261-98-765-4321"
+                      client_email: "alan@example.com"
+                      room_number: 202
+                      room_description: "Chambre deluxe"
+                      booking_date: "2025-09-06"
+        "422":
+          description: Erreur de validation de la requête
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+
+    post:
+      tags: [Booking]
+      summary: Créer une réservation
+      description: |
+        Crée une réservation si la chambre est libre le jour donné.  
+        En cas de succès, renvoie la liste complète des réservations (code **200**).  
+        Si la chambre est déjà réservée à cette date, renvoie **409 Conflict**.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingIn"
+            examples:
+              create:
+                summary: Exemple de création
+                value:
+                  client_name: "Ada Lovelace"
+                  client_phone: "+261-99-123-4567"
+                  client_email: "ada@example.com"
+                  room_number: 101
+                  room_description: "Suite vue mer"
+                  booking_date: "2025-09-05"
+      responses:
+        "200":
+          description: Réservation créée — liste complète retournée
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+        "409":
+          description: Chambre déjà réservée pour cette date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                conflict:
+                  summary: Conflit de réservation
+                  value:
+                    detail: "La chambre 101 n'est plus disponible à la date 2025-09-05."
+        "422":
+          description: Erreur de validation de la requête
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+
+components:
+  schemas:
+    BookingIn:
+      type: object
+      required:
+        - client_name
+        - client_phone
+        - client_email
+        - room_number
+        - room_description
+        - booking_date
+      properties:
+        client_name:
+          type: string
+          description: Nom du client
+          minLength: 1
+          example: "Ada Lovelace"
+        client_phone:
+          type: string
+          description: Téléphone du client
+          minLength: 3
+          example: "+261-99-123-4567"
+        client_email:
+          type: string
+          format: email
+          description: Email du client
+          example: "ada@example.com"
+        room_number:
+          type: integer
+          minimum: 1
+          description: Numéro de chambre (>= 1)
+          example: 101
+        room_description:
+          type: string
+          description: Description de la chambre
+          minLength: 1
+          example: "Suite vue mer"
+        booking_date:
+          type: string
+          format: date
+          description: Date de réservation (YYYY-MM-DD)
+          example: "2025-09-05"
+
+    Booking:
+      allOf:
+        - $ref: "#/components/schemas/BookingIn"
+        - type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+              description: Identifiant interne de la réservation
+              example: 1
+
+    Error:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Message d’erreur
+          example: "La chambre 101 n'est plus disponible à la date 2025-09-05."
+
+    ValidationError:
+      type: object
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  oneOf:
+                    - type: string
+                    - type: integer
+              msg:
+                type: string
+              type:
+                type: string
+      example:
+        detail:
+          - loc: ["body", "room_number"]
+            msg: "Input should be greater than or equal to 1"
+            type: "greater_than_equal"
